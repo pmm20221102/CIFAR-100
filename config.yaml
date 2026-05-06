@@ -1,0 +1,46 @@
+active_model: convnext
+
+data:
+  dataset_root: D:\Study\cifar100
+  train_batch_size: 512
+  test_batch_size: 1024
+  num_workers: 4
+  model_dir: models
+  log_dir: logs
+
+train:
+  epoch_num: 300
+  lr: 0.002
+  warmup_epochs: 5
+  early_stop_patience: 40
+  early_stop_min_delta: 0.001
+  label_smoothing: 0.05
+  weight_decay: 0.0005
+  mixup_alpha: 0.1
+  cutmix_alpha: 1.0
+  cutmix_prob: 0.5
+  ema_decay: 0.999
+
+models:
+  mobilenet:
+    params:
+      width_mult: 1.25
+      dropout: 0.2
+      stage512_depth: 3
+  mobilevit:
+    params:
+      num_classes: 100
+      dropout: 0.1
+  convnext:
+    params:
+      num_classes: 100
+      depths: [2, 2, 6, 2]
+      dims: [32, 64, 160, 320]
+      drop_path_rate: 0.1
+      layer_scale_init_value: 1.0
+  wide_resnet:
+    params:
+      depth: 16
+      widen_factor: 6
+      dropout_rate: 0.3
+      num_classes: 100

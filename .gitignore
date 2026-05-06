@@ -1,0 +1,19 @@
+# CIFAR-100 dataset
+cifar-100-python/
+cifar-100-python.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Models & logs
+models/
+logs/
+
+# IDE
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
