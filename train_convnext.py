@@ -4,9 +4,11 @@ import torch.nn as nn
 import time
 import copy
 import random
+import shutil
 from pathlib import Path
 
 import yaml
+from torch.cuda.amp import autocast, GradScaler
 
 from convnext_cifar import convnext_tiny_cifar100
 from load_cifar100 import get_dataloaders
@@ -77,11 +79,18 @@ def criterion_mixup(outputs, targets_a, targets_b, lam, loss_fn):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default='config.yaml', help='配置文件路径')
+    parser.add_argument('--resume', type=str, default=None, help='从 checkpoint 恢复训练，指定 checkpoint 路径')
+    parser.add_argument('--drive-sync', type=str, default=None, help='Google Drive 同步目录路径，每次保存 checkpoint 后自动同步')
+    args = parser.parse_args()
+
     os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
     from torch.utils.tensorboard import SummaryWriter
 
     project_dir = Path(__file__).resolve().parent
-    config_path = project_dir / 'config.yaml'
+    config_path = project_dir / args.config
     config = load_config(config_path)
 
     train_config = config.get('train', {})
@@ -103,8 +112,13 @@ if __name__ == '__main__':
     cutmix_alpha = train_config.get('cutmix_alpha', 1.0)
     cutmix_prob = train_config.get('cutmix_prob', 0.5)
     ema_decay = train_config.get('ema_decay', 0.999)
+    use_amp = train_config.get('amp', False)
 
     net = convnext_tiny_cifar100(**model_config.get('params', {})).to(device)
+
+    scaler = GradScaler(enabled=use_amp)
+    if use_amp:
+        print("AMP 混合精度训练已启用")
 
 
     ema_net = copy.deepcopy(net).to(device)
@@ -135,6 +149,30 @@ if __name__ == '__main__':
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, epoch_num - warmup_epochs))
 
+    # 断点续训
+    start_epoch = 0
+    best_test_accuracy = 0.0
+    best_epoch = 0
+    patience_counter = 0
+
+    if args.resume:
+        resume_path = Path(args.resume)
+        if resume_path.exists():
+            print(f"从 checkpoint 恢复训练: {resume_path}")
+            ckpt = torch.load(str(resume_path), map_location=device)
+            net.load_state_dict(ckpt['model_state_dict'])
+            ema_net.load_state_dict(ckpt['ema_state_dict'])
+            optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+            scheduler.load_state_dict(ckpt['scheduler_state_dict'])
+            scaler.load_state_dict(ckpt['scaler_state_dict'])
+            start_epoch = ckpt['epoch']
+            best_test_accuracy = ckpt.get('best_test_accuracy', 0.0)
+            best_epoch = ckpt.get('best_epoch', 0)
+            patience_counter = ckpt.get('patience_counter', 0)
+            print(f"已恢复: epoch={start_epoch}, best_acc={best_test_accuracy:.4f}")
+        else:
+            print(f"未找到 checkpoint: {resume_path}，从头开始训练")
+
     base_model_dir = Path(data_config.get('model_dir', 'models'))
     base_log_dir = Path(data_config.get('log_dir', 'logs'))
     model_dir = base_model_dir / 'convnext'
@@ -142,16 +180,19 @@ if __name__ == '__main__':
     model_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    # Google Drive 同步目录
+    drive_dir = Path(args.drive_sync) if args.drive_sync else None
+    if drive_dir:
+        drive_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Google Drive 同步目录: {drive_dir}")
+
     writer = SummaryWriter(str(log_dir))
     print(f"模型保存目录: {model_dir}")
     print(f"日志保存目录: {log_dir}")
     step = 0
     train_start_time = time.time()
-    best_test_accuracy = 0.0
-    best_epoch = 0
-    patience_counter = 0
 
-    for epoch in range(epoch_num):
+    for epoch in range(start_epoch, epoch_num):
         epoch_start_time = time.time()
         net.train()
         sum_loss = 0
@@ -173,18 +214,22 @@ if __name__ == '__main__':
             else:
                 inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=mixup_alpha)
 
-            outputs = net(inputs)
-            loss = criterion_mixup(outputs, targets_a, targets_b, lam, loss_fn)
+            with autocast(enabled=use_amp):
+                outputs = net(inputs)
+                loss = criterion_mixup(outputs, targets_a, targets_b, lam, loss_fn)
 
             optimizer.zero_grad()
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
 
             update_ema(net, ema_net, ema_decay)
 
+            # Mixup/CutMix 下准确率按比例加权计算
             predicted = outputs.argmax(dim=1)
-            correct = (predicted == labels).sum().item()
+            correct = lam * (predicted == targets_a).sum().item() + (1 - lam) * (predicted == targets_b).sum().item()
             sum_loss += loss.item()
             sum_accuracy += correct
 
@@ -211,8 +256,21 @@ if __name__ == '__main__':
 
         if (epoch + 1) % 10 == 0:
             checkpoint_path = model_dir / f'cifar100_{epoch+1}.pth'
-            torch.save(net.state_dict(), str(checkpoint_path))
+            torch.save({
+                'epoch': epoch + 1,
+                'ema_state_dict': ema_net.state_dict(),
+                'model_state_dict': net.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'scaler_state_dict': scaler.state_dict(),
+                'best_test_accuracy': best_test_accuracy,
+                'best_epoch': best_epoch,
+                'patience_counter': patience_counter,
+            }, str(checkpoint_path))
             print(f"模型已保存: {checkpoint_path}")
+            if drive_dir:
+                shutil.copy(str(checkpoint_path), str(drive_dir / checkpoint_path.name))
+                print(f"已同步到 Drive: {drive_dir / checkpoint_path.name}")
 
         if epoch >= warmup_epochs:
             scheduler.step()
@@ -227,8 +285,9 @@ if __name__ == '__main__':
                 inputs, labels = data
                 inputs, labels = inputs.to(device, non_blocking=True), labels.to(device, non_blocking=True)
 
-                outputs = ema_net(inputs)
-                loss = loss_fn(outputs, labels)
+                with autocast(enabled=use_amp):
+                    outputs = ema_net(inputs)
+                    loss = loss_fn(outputs, labels)
 
                 predicted = outputs.argmax(dim=1)
                 correct = (predicted == labels).sum().item()
@@ -248,15 +307,22 @@ if __name__ == '__main__':
             torch.save(
                 {
                     'epoch': epoch + 1,
-                    'model_state_dict': net.state_dict(),
                     'ema_state_dict': ema_net.state_dict(),
+                    'model_state_dict': net.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'scaler_state_dict': scaler.state_dict(),
                     'best_test_accuracy': best_test_accuracy,
+                    'best_epoch': best_epoch,
+                    'patience_counter': patience_counter,
                     'test_loss': test_loss,
                 },
                 str(best_path)
             )
             print(f"         | 新最佳模型已保存: {best_path} (Acc={best_test_accuracy:.4f})")
+            if drive_dir:
+                shutil.copy(str(best_path), str(drive_dir / best_path.name))
+                print(f"         | 已同步到 Drive: {drive_dir / best_path.name}")
         else:
             patience_counter += 1
 
