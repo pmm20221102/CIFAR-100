@@ -1,6 +1,7 @@
 # CIFAR-100 dataset
 cifar-100-python/
 cifar-100-python.tar.gz
+cifar100.zip
 
 # Python
 __pycache__/
