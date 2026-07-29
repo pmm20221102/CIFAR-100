@@ -20,6 +20,11 @@ train:
   cutmix_alpha: 1.0
   cutmix_prob: 0.5
   ema_decay: 0.999
+  use_ema: false
+  amp: false
+  optimizer: adam
+  grad_clip_norm: 0.0
+  accumulation_steps: 1
 
 models:
   mobilenet:
@@ -44,3 +49,16 @@ models:
       widen_factor: 6
       dropout_rate: 0.3
       num_classes: 100
+  vit:
+    params:
+      image_size: 32
+      patch_size: 4
+      in_channels: 3
+      num_classes: 100
+      embed_dim: 256
+      depth: 6
+      num_heads: 8
+      mlp_ratio: 4.0
+      dropout: 0.1
+      attention_dropout: 0.0
+      drop_path_rate: 0.1

@@ -1,0 +1,42 @@
+active_model: vit
+
+data:
+  dataset_root: /content/cifar100_data
+  train_batch_size: 1024
+  test_batch_size: 2048
+  num_workers: 2
+  model_dir: /content/cifar100/models
+  log_dir: /content/cifar100/logs
+
+train:
+  epoch_num: 300
+  lr: 0.0005
+  warmup_epochs: 10
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  label_smoothing: 0.1
+  weight_decay: 0.05
+  mixup_alpha: 0.2
+  cutmix_alpha: 1.0
+  cutmix_prob: 0.5
+  ema_decay: 0.999
+  use_ema: true
+  amp: true
+  optimizer: adamw
+  grad_clip_norm: 1.0
+  accumulation_steps: 1
+
+models:
+  vit:
+    params:
+      image_size: 32
+      patch_size: 4
+      in_channels: 3
+      num_classes: 100
+      embed_dim: 256
+      depth: 6
+      num_heads: 8
+      mlp_ratio: 4.0
+      dropout: 0.1
+      attention_dropout: 0.0
+      drop_path_rate: 0.1

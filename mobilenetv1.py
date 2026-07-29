@@ -79,4 +79,4 @@ class MobileNet(nn.Module):
         return out
 
 def mobilenetv1_small(width_mult=1.25, dropout=0.3, stage512_depth=3):
-    return mobilenet(width_mult=width_mult, dropout=dropout, stage512_depth=stage512_depth)
+    return MobileNet(width_mult=width_mult, dropout=dropout, stage512_depth=stage512_depth)
