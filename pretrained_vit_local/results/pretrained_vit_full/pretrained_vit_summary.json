@@ -1,0 +1,19 @@
+{
+  "model_name": "deit_tiny_patch16_224",
+  "mode": "full_finetune",
+  "total_params": 5543716,
+  "trainable_params": 5543716,
+  "frozen_params": 0,
+  "best_test_accuracy": 0.8496,
+  "best_epoch": 41,
+  "total_epochs_run": 50,
+  "device": "cuda:0",
+  "amp": true,
+  "weight_decay": 0.05,
+  "backbone_lr": 2e-05,
+  "head_lr": 0.0001,
+  "label_smoothing": 0.1,
+  "gradient_clip_norm": 1.0,
+  "accumulation_steps": 2,
+  "total_training_time_s": 4360.057626485825
+}

@@ -1,0 +1,35 @@
+data:
+  dataset_root: D:\Study\cifar100
+  image_size: 224
+  num_workers: 0
+  test_batch_size: 128
+  train_batch_size: 64
+device:
+  amp: true
+  compile: false
+experiment_name: deit_tiny_cifar100_local
+model:
+  library: timm
+  mode: linear_probe
+  name: deit_tiny_patch16_224
+  num_classes: 100
+  pretrained: true
+  unfreeze_last_blocks: 2
+output:
+  log_dir: logs/pretrained_vit_linear_probe
+  model_dir: models/pretrained_vit_linear_probe
+  result_dir: results/pretrained_vit_linear_probe
+  save_every_epochs: 10
+train:
+  backbone_lr: 0.001
+  early_stop_min_delta: 0.001
+  early_stop_patience: 12
+  epochs: 20
+  gradient_accumulation_steps: 1
+  gradient_clip_norm: 1.0
+  head_lr: 0.001
+  label_smoothing: 0.1
+  optimizer: adamw
+  seed: 42
+  warmup_epochs: 3
+  weight_decay: 0.05

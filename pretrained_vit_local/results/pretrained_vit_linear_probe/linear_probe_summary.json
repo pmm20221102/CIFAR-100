@@ -1,0 +1,8 @@
+{
+  "mode": "linear_probe",
+  "model_name": "deit_tiny_patch16_224",
+  "epochs": 20,
+  "best_test_top1": 0.6913,
+  "best_test_top5": 0.923,
+  "total_time_s": 4143.550582170486
+}

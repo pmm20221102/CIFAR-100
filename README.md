@@ -10,17 +10,23 @@ A PyTorch project for benchmarking lightweight CNN and Vision Transformer models
 
 ## Test Results / 测试结果
 
-| Model / 模型 | Params / 参数量 | Best Test Acc / 最佳测试准确率 | Best Epoch / 最佳轮次 | Train Acc / 训练准确率 | Best Test Loss / 最佳测试损失 |
-|---|---|---|---|---|---|
-| MobileNetV1 | 1.95M | **73.09%** | 184 | 93.83% | 1.4513 |
-| MobileViT | 1.39M | **70.99%** | 193 | 73.12% | 1.4090 |
-| WideResNet-16-6 | 10.95M | **74.10%** | 184 | 84.54% | 1.3573 |
-| ConvNeXt-Tiny | 3.70M | **76.26%** | 243 | 62.87% | 1.2775 |
-| ViT-Tiny | 4.79M | **68.24%** | 219 | 62.56% | 1.8079 |
+| Model / 模型 | Init / 初始化 | Input | Params / 参数量 | Trainable / 可训练 | Best Top-1 | Best Top-5 | Train Device / 训练设备 |
+|---|---|---:|---:|---:|---:|---:|---|
+| MobileNetV1 | Random | 32 | 1.95M | 1.95M | **73.09%** | - | Colab T4 |
+| MobileViT | Random | 32 | 1.39M | 1.39M | **70.99%** | - | Colab T4 |
+| WideResNet-16-6 | Random | 32 | 10.95M | 10.95M | **74.10%** | - | Colab T4 |
+| ConvNeXt-Tiny | Random | 32 | 3.70M | 3.70M | **76.26%** | - | Colab T4 |
+| ViT-Tiny (从零) | Random | 32 | 4.79M | 4.79M | **68.24%** | - | Colab T4 |
+| DeiT-Tiny Linear | ImageNet | 224 | 5.54M | 19K | **69.32%** | 92.23% | Local RTX 3060 |
+| DeiT-Tiny Partial | ImageNet | 224 | 5.54M | 890K | **75.84%** | 95.07% | Local RTX 3060 |
+| DeiT-Tiny Full | ImageNet | 224 | 5.54M | 5.54M | **84.96%** | 97.42% | Local RTX 3060 |
+| DeiT-Small Linear | ImageNet | 224 | 21.7M | 38K | **76.78%** | 94.81% | Local RTX 3060 |
+| DeiT-Small Partial | ImageNet | 224 | 21.7M | 3.59M | **81.15%** | 96.79% | Local RTX 3060 |
+| DeiT-Small Full | ImageNet | 224 | 21.7M | 21.7M | **88.66%** | 98.18% | Local RTX 3060 |
 
-> ConvNeXt achieves the best accuracy (76.26%) with EMA, Mixup, CutMix, and a larger model configuration trained on Google Colab T4 GPU.
+> Pretrained DeiT-Small Full Finetune achieves the best accuracy (88.66%), using ImageNet pretrained weights resized to 224×224.
 >
-> ConvNeXt 通过 EMA、Mixup、CutMix 和更大的模型配置（在 Google Colab T4 GPU 上训练）达到了最高准确率（76.26%）。
+> 预训练 DeiT-Small 全量微调达到最高准确率（88.66%），使用 ImageNet 预训练权重，输入 Resize 到 224×224。
 
 ---
 
@@ -44,6 +50,7 @@ cifar100/
 ├── train_colab.ipynb        # Legacy Colab training notebook
 ├── config_colab.yaml        # Colab config (legacy)
 ├── cifar100_code.zip        # Colab deploy archive (not in repo)
+├── pretrained_vit_local/    # Pretrained ViT fine-tuning (DeiT-Tiny/Small, 3 modes)
 └── cifar-100-python/        # Dataset (not in repo)
 ```
 
@@ -117,6 +124,32 @@ python train.py --config config_colab_vit.yaml \
 ViT Colab config: `config_colab_vit.yaml` (AdamW, AMP, EMA, batch 1024). Trained on Tesla T4, early-stopped at epoch 269/300.
 
 See [README_colab.md](README_colab.md) for general Colab training instructions.
+
+---
+
+## Pretrained ViT Fine-tuning / 预训练 ViT 微调
+
+See [pretrained_vit_local/README_pretrained_vit.md](pretrained_vit_local/README_pretrained_vit.md) for detailed instructions.
+
+详见 [pretrained_vit_local/README_pretrained_vit.md](pretrained_vit_local/README_pretrained_vit.md)。
+
+Pretrained DeiT-Tiny/Small fine-tuning on CIFAR-100 with 3 modes: Linear Probe, Partial Finetuning, Full Finetuning. Optimized for local RTX 3060 6GB.
+
+预训练 DeiT-Tiny/Small 在 CIFAR-100 上的微调，支持三种模式：线性探测、部分解冻、全量微调。针对本地 RTX 3060 6GB 优化。
+
+```bash
+cd pretrained_vit_local
+
+# DeiT-Tiny (5.54M params)
+python train_pretrained_vit.py --config config_pretrained_vit_linear_probe.yaml
+python train_pretrained_vit.py --config config_partial_finetune.yaml
+python train_pretrained_vit.py --config config_full_finetune.yaml
+
+# DeiT-Small (21.7M params)
+python train_pretrained_vit.py --config config_small_linear_probe.yaml
+python train_pretrained_vit.py --config config_small_partial_finetune.yaml
+python train_pretrained_vit.py --config config_small_full_finetune.yaml
+```
 
 ---
 

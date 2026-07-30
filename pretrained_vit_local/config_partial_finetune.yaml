@@ -1,0 +1,40 @@
+experiment_name: deit_tiny_partial_finetune
+
+device:
+  amp: true
+  compile: false
+
+data:
+  dataset_root: D:\Study\cifar100
+  image_size: 224
+  train_batch_size: 128
+  test_batch_size: 256
+  num_workers: 4
+
+model:
+  library: timm
+  name: deit_tiny_patch16_224
+  pretrained: true
+  num_classes: 100
+  mode: partial_finetune
+  unfreeze_last_blocks: 2
+
+train:
+  epochs: 40
+  optimizer: adamw
+  backbone_lr: 0.00005
+  head_lr: 0.0002
+  weight_decay: 0.05
+  warmup_epochs: 3
+  label_smoothing: 0.1
+  gradient_clip_norm: 1.0
+  gradient_accumulation_steps: 1
+  early_stop_patience: 12
+  early_stop_min_delta: 0.001
+  seed: 42
+
+output:
+  model_dir: models/pretrained_vit_partial
+  log_dir: logs/pretrained_vit_partial
+  result_dir: results/pretrained_vit_partial
+  save_every_epochs: 10

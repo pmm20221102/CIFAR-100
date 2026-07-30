@@ -1,0 +1,39 @@
+experiment_name: deit_small_linear_probe
+
+device:
+  amp: true
+  compile: false
+
+data:
+  dataset_root: D:\Study\cifar100
+  image_size: 224
+  train_batch_size: 64
+  test_batch_size: 128
+  num_workers: 4
+
+model:
+  library: timm
+  name: deit_small_patch16_224
+  pretrained: true
+  num_classes: 100
+  mode: linear_probe
+
+train:
+  epochs: 20
+  optimizer: adamw
+  backbone_lr: 0.001
+  head_lr: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 2
+  label_smoothing: 0.0
+  gradient_clip_norm: 1.0
+  gradient_accumulation_steps: 1
+  early_stop_patience: 8
+  early_stop_min_delta: 0.001
+  seed: 42
+
+output:
+  model_dir: models/pretrained_vit_small_linear
+  log_dir: logs/pretrained_vit_small_linear
+  result_dir: results/pretrained_vit_small_linear
+  save_every_epochs: 10

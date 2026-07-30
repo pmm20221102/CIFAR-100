@@ -1,0 +1,15 @@
+{
+  "checkpoint": "models/pretrained_vit_small_partial/best.pth",
+  "model_name": "deit_small_patch16_224",
+  "mode": "partial_finetune",
+  "total_params": 21704164,
+  "trainable_params": 3588196,
+  "frozen_params": 18115968,
+  "test_samples": 10000,
+  "test_loss": 0.729137188577652,
+  "top1_accuracy": 0.8115,
+  "top5_accuracy": 0.9679,
+  "elapsed_s": 58.681461572647095,
+  "images_per_sec": 170.41157005982365,
+  "peak_gpu_memory_mb": 719.53564453125
+}
